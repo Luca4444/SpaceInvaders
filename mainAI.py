@@ -20,17 +20,21 @@ imageFileList = ["static/player1.png", "static/player2.png", "static/player3.png
                  "static/wall.png"]
 imageList = [pygame.image.load(f).convert_alpha() for f in imageFileList]
 
+
+
 gen = 0
 
 
 class Game:
 
-    def __init__(self, numRow=16, rows=1, waves=1, type2=0, type3=0):
+    def __init__(self, numRow=16, rows=1, waves=1, type2=0, type3=0, outputs=1, pop=50):
         self.background = imageList[7]
         self.player = ''
         self.level = ''
         self.score = 0
+        self.outputs = outputs
         self.playing = True
+        self.pop = pop
         self.playAgainVar = False
         self.screen = screen
         self.timer = 0
@@ -38,17 +42,9 @@ class Game:
         self.levelDetails = [numRow, rows, waves, type2, type3]
 
     def eval_genomes(self, genomes, config, oneGenome=False):
-        self.player = Player()
-        self.level = Level(numRow=self.levelDetails[0],
-                           rows=self.levelDetails[1],
-                           waves=self.levelDetails[2],
-                           type2=self.levelDetails[3],
-                           type3=self.levelDetails[4])
-        self.score = 0
-        self.timer = 0
-        self.counter = 0
         global gen
-        gen += 1
+        gen = 0
+        bestGen = []
         ge = []
         nets = []
         for genome_id, genome in genomes:
@@ -60,134 +56,255 @@ class Game:
             nets.append(net)
             ge.append(genome)
 
-        self.playAgainVar = False
-        clock = pygame.time.Clock()
-        MAX_FRAMETIME = 0.25
-        accumulator = 0
-        frametime = clock.tick(1000)
-        run = True
-        while run:
-            frametime = clock.tick(1000) / 1000
-            if frametime > MAX_FRAMETIME:
-                frametime = MAX_FRAMETIME
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    run = False
-                    pygame.quit()
-                    quit()
-                    break
-                if event.type == pygame.KEYDOWN:
-                    if event.key == pygame.K_SPACE:
+        reUseGenome = False
+        if reUseGenome == True:
+            nets.pop(0)
+            ge.pop(0)
+            local_dir = os.path.dirname(__file__)
+            bestGenome_path = os.path.join(local_dir, 'pickles/' + 'best-f(M289.9)-d[16, 3, 3, 0, 0]-o[3]904666.pickle')
+            with open(bestGenome_path, "rb") as f:
+                genome = pickle.load(f)
+
+            genome.fitness = 0
+            #genomes = [(1, genome)]
+            nets.insert(0, genome)
+            ge.insert(0, genome)
+
+        #Sacar el primr net y meter el favorito
+
+
+
+
+        while self.pop > gen:
+            self.player = Player()
+            self.level = Level(numRow=self.levelDetails[0],
+                               rows=self.levelDetails[1],
+                               waves=self.levelDetails[2],
+                               type2=self.levelDetails[3],
+                               type3=self.levelDetails[4])
+            self.score = 0
+            self.timer = 0
+            self.counter = 0
+
+            gen += 1
+
+            self.playAgainVar = False
+            clock = pygame.time.Clock()
+            MAX_FRAMETIME = 0.25
+            accumulator = 0
+            frametime = clock.tick(1000)
+            run = True
+            while run:
+                frametime = clock.tick(1000) / 1000
+                if frametime > MAX_FRAMETIME:
+                    frametime = MAX_FRAMETIME
+                for event in pygame.event.get():
+                    if event.type == pygame.QUIT:
                         run = False
-
-            self.timer += 1
-            self.counter += 1
-            accumulator += frametime
-            # ge.fitness += 0.1
-            playerInfo = self.player.main(0, False)
-            enemysInfo = self.level.enemyDict
-            enemysRectsDict = dict()
-            heartInfo = self.player.heartDict
-            scoreFunc = self.scoreText(self.score, 20, 30, "Score: ")
-            posText = self.scoreText(playerInfo[1].x, 20, 60, "PosX: ")
-            timeText = self.scoreText(self.timer, 20, 90, "TimeLK: ")
-            genText = self.scoreText(gen, 20, 120, "Gen: ")
-
-            for enemy in enemysInfo:
-                enemysRectsDict[enemy] = enemysInfo[enemy].main()
-
-            for enemy in enemysInfo:
-                output = nets[0].activate((playerInfo[1].x + 50, playerInfo[1].x + 50 - enemysRectsDict[enemy].x,
-                                           playerInfo[1].x + 50 - enemysRectsDict[enemy].x + 35))
-                if 950 >= playerInfo[1].x >= 0:
-                    ge[0].fitness += 0.001
-                    if output[0] > 0.5:
-                        playerInfo = self.player.main(3, True)
-                    elif output[0] < -0.5:
-                        playerInfo = self.player.main(-3, True)
-                    elif 0 >= output[0] > -0.5:
-                        playerInfo = self.player.main(3, False)
-                    elif 0 < output[0] < 0.5:
-                        playerInfo = self.player.main(-3, False)
-                elif 950 < playerInfo[1].x:
-                    # nets.pop(0)
-                    # ge.pop(0)
-                    # run = False
-                    playerInfo = self.player.main(-3, False)
-                    ge[0].fitness -= 0.2
-                elif 0 > playerInfo[1].x:
-                    # nets.pop(0)
-                    # ge.pop(0)
-                    # run = False
-                    playerInfo = self.player.main(3, False)
-                    ge[0].fitness -= 0.2
-                break
-
-            if self.score == 0:
-                ge[0].fitness -= 0.01
-
-            if self.timer > 300:
-                ge[0].fitness -= 0.2
-                if self.score == 0:
-                    ge[0].fitness -= 0.1
-
-            if self.timer > 500:
-                nets.pop(0)
-                ge.pop(0)
-                run = False
-
-            self.screen.blit(self.background, [0, 0])
-            self.screen.blit(playerInfo[0], playerInfo[1])
-            for bullet in list(playerInfo[2]):
-                bulletRect = playerInfo[2][bullet].main()
-                self.screen.blit(playerInfo[2][bullet].bullet, bulletRect)
-
-                if bulletRect.collidedict(enemysRectsDict, True) is not None:
-                    # print(bulletRect.collidedict(enemysRectsDict, True)[0])
-                    self.score += 1
-                    self.timer = 0
-                    ge[gen - 1].fitness += 2
-                    enemysInfo[bulletRect.collidedict(enemysRectsDict, True)[0]].hitPoints -= 1
-                    del playerInfo[2][bullet]
-                    if enemysInfo[bulletRect.collidedict(enemysRectsDict, True)[0]].hitPoints == 0:
-                        del enemysInfo[bulletRect.collidedict(enemysRectsDict, True)[0]]
-                        del enemysRectsDict[bulletRect.collidedict(enemysRectsDict, True)[0]]
-                    else:
+                        pygame.quit()
+                        quit()
                         break
+                    if event.type == pygame.KEYDOWN:
+                        if event.key == pygame.K_SPACE:
+                            nets.pop(0)
+                            ge.pop(0)
+                            run = False
 
-                if bulletRect.y <= 0:
-                    del playerInfo[2][bullet]
+                self.timer += 1
+                self.counter += 1
+                accumulator += frametime
+                playerInfo = self.player.main(0, False)
+                enemysInfo = self.level.enemyDict
+                enemysRectsDict = dict()
+                heartInfo = self.player.heartDict
+                scoreFunc = self.scoreText(self.score, 20, 30, "Score: ")
+                posText = self.scoreText(playerInfo[1].x, 20, 60, "PosX: ")
+                timeLKText = self.scoreText(self.timer, 20, 90, "TimeLK: ")
+                genText = self.scoreText(gen, 20, 120, "Subject: ")
+                timeText = self.scoreText(self.counter, 20, 150, "Time: ")
 
-            for enemy in list(enemysInfo):
-                enemyRect = enemysInfo[enemy].main()
-                self.screen.blit(enemysInfo[enemy].enemy, enemyRect)
-                if enemyRect.y > 555:
-                    self.score -= 1
-                    del enemysInfo[enemy]
-                    del enemysRectsDict[enemy]
-                    self.player.hP -= 1
-                    if self.player.hP > 0:
-                        del heartInfo["heart" + str(self.player.hP + 1)]
-                    if self.player.hP == 0:
-                        self.playing = False
-                        run = False
+                for enemy in enemysInfo:
+                    enemysRectsDict[enemy] = enemysInfo[enemy].main()
 
-            if len(list(enemysInfo)) == 0:
-                if oneGenome == False:
-                    t = time.time()
-                    f = "pickles/best-t(" + str(self.counter) + ")" + str(t)[4:10] + ".pickle"
-                    pickle.dump(nets[0], open(f, "wb"))
-                run = False
+                for enemy in enemysInfo:
+                    output = nets[0].activate((playerInfo[1].x + 50,
+                                               playerInfo[1].x + 50 - enemysRectsDict[enemy].x,
+                                               playerInfo[1].x + 50 - enemysRectsDict[enemy].x + 35))
+                    #print(output)
+                    if 950 >= playerInfo[1].x >= 0:
+                        ge[0].fitness += 0.001
+                        if output[0] > 0.5:
+                            if output[2] > 0.5:
+                                playerInfo = self.player.main(3, True)
+                            else:
+                                playerInfo = self.player.main(3, False)
+                        if output[1] > 0.5:
+                            if output[2] > 0.5:
+                                playerInfo = self.player.main(-3, True)
+                            else:
+                                playerInfo = self.player.main(-3, False)
 
-            for heart in list(heartInfo):
-                self.screen.blit(self.player.heart, heartInfo[heart])
+                        # if output[0] > 0.5:
+                        #     playerInfo = self.player.main(3, True)
+                        # elif output[0] < -0.5:
+                        #     playerInfo = self.player.main(-3, True)
+                        # elif 0 >= output[0] > -0.5:
+                        #     playerInfo = self.player.main(3, False)
+                        # elif 0 < output[0] < 0.5:
+                        #     playerInfo = self.player.main(-3, False)
+                    elif 950 < playerInfo[1].x:
+                        # nets.pop(0)
+                        # ge.pop(0)
+                        # run = False
+                        playerInfo = self.player.main(-3, False)
+                        ge[0].fitness -= 0.6
+                    elif 0 > playerInfo[1].x:
+                        # nets.pop(0)
+                        # ge.pop(0)
+                        # run = False
+                        playerInfo = self.player.main(3, False)
+                        ge[0].fitness -= 0.6
+                    break
 
-            self.screen.blit(scoreFunc[0], scoreFunc[1])
-            self.screen.blit(posText[0], posText[1])
-            self.screen.blit(timeText[0], timeText[1])
-            self.screen.blit(genText[0], genText[1])
+                # ##################################################################################################
+                #
+                # output = nets[0].activate((playerInfo[1].x + 50,
+                #                            playerInfo[1].x + 50 - enemysRectsDict[list(enemysInfo.keys())[-1]].x,
+                #                            playerInfo[1].x + 50 - enemysRectsDict[list(enemysInfo.keys())[-1]].x + 35))
+                # # print(output)
+                # if 950 >= playerInfo[1].x >= 0:
+                #     ge[0].fitness += 0.001
+                #     if output[0] > 0.5:
+                #         if output[2] > 0.5:
+                #             playerInfo = self.player.main(3, True)
+                #         else:
+                #             playerInfo = self.player.main(3, False)
+                #     if output[1] > 0.5:
+                #         if output[2] > 0.5:
+                #             playerInfo = self.player.main(-3, True)
+                #         else:
+                #             playerInfo = self.player.main(-3, False)
+                #
+                #     # if output[0] > 0.5:
+                #     #     playerInfo = self.player.main(3, True)
+                #     # elif output[0] < -0.5:
+                #     #     playerInfo = self.player.main(-3, True)
+                #     # elif 0 >= output[0] > -0.5:
+                #     #     playerInfo = self.player.main(3, False)
+                #     # elif 0 < output[0] < 0.5:
+                #     #     playerInfo = self.player.main(-3, False)
+                # elif 950 < playerInfo[1].x:
+                #     # nets.pop(0)
+                #     # ge.pop(0)
+                #     # run = False
+                #     playerInfo = self.player.main(-3, False)
+                #     ge[0].fitness -= 0.2
+                # elif 0 > playerInfo[1].x:
+                #     # nets.pop(0)
+                #     # ge.pop(0)
+                #     # run = False
+                #     playerInfo = self.player.main(3, False)
+                #     ge[0].fitness -= 0.2
+                #
+                # ##################################################################################################
 
-            pygame.display.flip()
+                if self.score == 0:
+                    ge[0].fitness -= 0.01
+
+                if (self.timer > 500 and self.counter<1500) or (self.timer>600 and self.counter>3200):
+                    ge[0].fitness -= 0.2
+                    if self.timer > 700:
+                        ge[0].fitness -= 0.2
+                    if self.score == 0:
+                        ge[0].fitness -= 0.4
+
+                if (self.timer > 1000 and self.levelDetails[2] == 1) or (self.timer > 500 and self.counter>3500):
+                    nets.pop(0)
+                    ge.pop(0)
+                    run = False
+
+                self.screen.blit(self.background, [0, 0])
+                self.screen.blit(playerInfo[0], playerInfo[1])
+                for bullet in list(playerInfo[2]):
+                    bulletRect = playerInfo[2][bullet].main()
+                    self.screen.blit(playerInfo[2][bullet].bullet, bulletRect)
+                    bullDeleted = False
+                    if bulletRect.y <= 0:  # era cero daba error
+                        #ge[0].fitness -= 0.01
+                        del playerInfo[2][bullet]
+                        bullDeleted = True
+                        for enemy in enemysInfo:
+                            if enemysRectsDict[enemy].y >= 0:
+                                ge[0].fitness -= 0.005
+                                break
+
+                    if bulletRect.collidedict(enemysRectsDict, True) is not None:
+                        #print(bulletRect.collidedict(enemysRectsDict, True)[0])  # enemy killed
+                        self.score += 1
+                        self.timer = 0
+                        ge[0].fitness += 2
+                        enemysInfo[bulletRect.collidedict(enemysRectsDict, True)[0]].hitPoints -= 1
+                        if bullDeleted == False:
+                            del playerInfo[2][bullet]
+                        if enemysInfo[bulletRect.collidedict(enemysRectsDict, True)[0]].hitPoints == 0:
+                            del enemysInfo[bulletRect.collidedict(enemysRectsDict, True)[0]]
+                            del enemysRectsDict[bulletRect.collidedict(enemysRectsDict, True)[0]]
+                        else:
+                            break
+
+
+
+                for enemy in list(enemysInfo):
+                    enemyRect = enemysInfo[enemy].main()
+                    self.screen.blit(enemysInfo[enemy].enemy, enemyRect)
+                    if enemyRect.y > 555:
+                        self.score -= 1
+                        del enemysInfo[enemy]
+                        del enemysRectsDict[enemy]
+                        self.player.hP -= 1
+                        if self.player.hP > 0:
+                            del heartInfo["heart" + str(self.player.hP + 1)]
+                        if self.player.hP == 0:
+                            self.playing = False
+                            run = False
+
+                if len(list(enemysInfo)) == 0 and self.player.hP == 10:
+                    bestGen.append(ge[0].fitness)
+                    print(bestGen)
+                    nets.append(nets.pop(0))
+                    ge.append(ge.pop(0))
+                    run = False
+
+                if self.player.hP < 10:
+                    nets.pop(0)
+                    ge.pop(0)
+                    run = False
+
+                for heart in list(heartInfo):
+                    self.screen.blit(self.player.heart, heartInfo[heart])
+
+                self.screen.blit(scoreFunc[0], scoreFunc[1])
+                self.screen.blit(posText[0], posText[1])
+                self.screen.blit(timeLKText[0], timeLKText[1])
+                self.screen.blit(timeText[0], timeText[1])
+                self.screen.blit(genText[0], genText[1])
+
+                pygame.display.flip()
+
+        bestFit = max(bestGen)
+        print(bestFit)
+        bestFitIndex = bestGen.index(bestFit)
+        nets = [nets[bestFitIndex]]
+        ge = [ge[bestFitIndex]]
+        if oneGenome == False:
+            t = time.time()
+            f = "pickles/best-f(" + str(ge[0].fitness)[0:5] + ")" +\
+                "-d" + str(self.levelDetails) +\
+                "-o[" + str(self.outputs) + "]" +\
+                str(t)[4:10] +\
+                ".pickle"
+            pickle.dump(nets[0], open(f, "wb"))
+
 
     def scoreText(self, score, x, y, txt):
         white = (255, 255, 255)
@@ -229,34 +346,13 @@ class Player:
         if self.counter > 0:
             self.counter -= 1
 
-        if shoot == True:
+        if shoot == True and self.counter == 0:
             self.bullets += 1
             self.counter += 20
             self.bulletsList.append("bullet" + str(self.bullets))
             self.bulletsDict[self.bulletsList[-1]] = Bullet(self.playerRect.x, self.playerRect.y,
                                                             self.player.get_width())
 
-        # for event in pygame.event.get():
-        #     if event.type == pygame.QUIT: sys.exit()
-        #
-        #     if event.type == pygame.KEYDOWN:
-        #         if event.key == pygame.K_SPACE and self.counter == 0:
-        #             self.bullets += 1
-        #             self.counter += 20
-        #             self.bulletsList.append("bullet" + str(self.bullets))
-        #             self.bulletsDict[self.bulletsList[-1]] = Bullet(self.playerRect.x, self.playerRect.y,
-        #                                                             self.player.get_width())
-
-        # keys = pygame.key.get_pressed()
-        #
-        # if (pygame.K_RIGHT and pygame.K_LEFT) not in keys:
-        #     self.speed[0] = 0
-        #
-        # if keys[pygame.K_LEFT] and (self.playerRect.x > -(self.player.get_width() / 2)):
-        #     self.speed[0] = -self.speedNum
-        #
-        # if keys[pygame.K_RIGHT] and (self.playerRect.x < width - (self.player.get_width() / 2)):
-        #     self.speed[0] = self.speedNum
 
         return [self.player, self.playerRect, self.bulletsDict]
 
@@ -370,6 +466,27 @@ def run(config_file, game):
     print('\nBest genome:\n{!s}'.format(winner))
 
 
+def reRun(config_file, game):
+    config = neat.config.Config(neat.DefaultGenome, neat.DefaultReproduction,
+                                neat.DefaultSpeciesSet, neat.DefaultStagnation,
+                                config_file)
+
+    # Create the population, which is the top-level object for a NEAT run.
+    p = neat.Population(config)
+
+    # Add a stdout reporter to show progress in the terminal.
+    p.add_reporter(neat.StdOutReporter(True))
+    stats = neat.StatisticsReporter()
+    p.add_reporter(stats)
+    # p.add_reporter(neat.Checkpointer(5))
+
+    # Run for up to 50 generations.
+    winner = p.run(game.eval_genomes, 50)
+
+    # show final stats
+    print('\nBest genome:\n{!s}'.format(winner))
+
+
 def runBest(config_file, game, genome_path):
     config = neat.config.Config(neat.DefaultGenome, neat.DefaultReproduction,
                                 neat.DefaultSpeciesSet, neat.DefaultStagnation,
@@ -385,8 +502,10 @@ def runBest(config_file, game, genome_path):
 
 local_dir = os.path.dirname(__file__)
 config_path = os.path.join(local_dir, 'config-feedforward.txt')
-bestGenome_path = os.path.join(local_dir, "pickles/" + 'best-t(813)639470.pickle')
+bestGenome_path = os.path.join(local_dir, 'pickles/' + 'best-f(M294.7)-d[16, 3, 3, 0, 0]-o[3]019240.pickle')
 
-game1 = Game(numRow=16, rows=3, waves=1, type2=0, type3=0)
-# run(config_path, game1)
+
+game1 = Game(numRow=16, rows=3, waves=3, type2=0, type3=0, outputs=3, pop=50)
+#run(config_path, game1) # Train from 0
+#reRun(config_path, game1)
 runBest(config_path, game1, bestGenome_path)
