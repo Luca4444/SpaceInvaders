@@ -20,8 +20,6 @@ imageFileList = ["static/player1.png", "static/player2.png", "static/player3.png
                  "static/wall.png"]
 imageList = [pygame.image.load(f).convert_alpha() for f in imageFileList]
 
-
-
 gen = 0
 
 
@@ -66,14 +64,11 @@ class Game:
                 genome = pickle.load(f)
 
             genome.fitness = 0
-            #genomes = [(1, genome)]
+            # genomes = [(1, genome)]
             nets.insert(0, genome)
             ge.insert(0, genome)
 
-        #Sacar el primr net y meter el favorito
-
-
-
+        # Sacar el primr net y meter el favorito
 
         while self.pop > gen:
             self.player = Player()
@@ -130,7 +125,7 @@ class Game:
                     output = nets[0].activate((playerInfo[1].x + 50,
                                                playerInfo[1].x + 50 - enemysRectsDict[enemy].x,
                                                playerInfo[1].x + 50 - enemysRectsDict[enemy].x + 35))
-                    #print(output)
+                    # print(output)
                     if 950 >= playerInfo[1].x >= 0:
                         ge[0].fitness += 0.001
                         if output[0] > 0.5:
@@ -211,14 +206,14 @@ class Game:
                 if self.score == 0:
                     ge[0].fitness -= 0.01
 
-                if (self.timer > 500 and self.counter<1500) or (self.timer>600 and self.counter>3200):
+                if (self.timer > 500 and self.counter < 1500) or (self.timer > 600 and self.counter > 3200):
                     ge[0].fitness -= 0.2
                     if self.timer > 700:
                         ge[0].fitness -= 0.2
                     if self.score == 0:
                         ge[0].fitness -= 0.4
 
-                if (self.timer > 1000 and self.levelDetails[2] == 1) or (self.timer > 500 and self.counter>3500):
+                if (self.timer > 1000 and self.levelDetails[2] == 1) or (self.timer > 500 and self.counter > 3500):
                     nets.pop(0)
                     ge.pop(0)
                     run = False
@@ -230,7 +225,7 @@ class Game:
                     self.screen.blit(playerInfo[2][bullet].bullet, bulletRect)
                     bullDeleted = False
                     if bulletRect.y <= 0:  # era cero daba error
-                        #ge[0].fitness -= 0.01
+                        # ge[0].fitness -= 0.01
                         del playerInfo[2][bullet]
                         bullDeleted = True
                         for enemy in enemysInfo:
@@ -239,7 +234,7 @@ class Game:
                                 break
 
                     if bulletRect.collidedict(enemysRectsDict, True) is not None:
-                        #print(bulletRect.collidedict(enemysRectsDict, True)[0])  # enemy killed
+                        # print(bulletRect.collidedict(enemysRectsDict, True)[0])  # enemy killed
                         self.score += 1
                         self.timer = 0
                         ge[0].fitness += 2
@@ -251,8 +246,6 @@ class Game:
                             del enemysRectsDict[bulletRect.collidedict(enemysRectsDict, True)[0]]
                         else:
                             break
-
-
 
                 for enemy in list(enemysInfo):
                     enemyRect = enemysInfo[enemy].main()
@@ -298,13 +291,12 @@ class Game:
         ge = [ge[bestFitIndex]]
         if oneGenome == False:
             t = time.time()
-            f = "pickles/best-f(" + str(ge[0].fitness)[0:5] + ")" +\
-                "-d" + str(self.levelDetails) +\
-                "-o[" + str(self.outputs) + "]" +\
-                str(t)[4:10] +\
+            f = "pickles/best-f(" + str(ge[0].fitness)[0:5] + ")" + \
+                "-d" + str(self.levelDetails) + \
+                "-o[" + str(self.outputs) + "]" + \
+                str(t)[4:10] + \
                 ".pickle"
             pickle.dump(nets[0], open(f, "wb"))
-
 
     def scoreText(self, score, x, y, txt):
         white = (255, 255, 255)
@@ -352,7 +344,6 @@ class Player:
             self.bulletsList.append("bullet" + str(self.bullets))
             self.bulletsDict[self.bulletsList[-1]] = Bullet(self.playerRect.x, self.playerRect.y,
                                                             self.player.get_width())
-
 
         return [self.player, self.playerRect, self.bulletsDict]
 
@@ -502,10 +493,26 @@ def runBest(config_file, game, genome_path):
 
 local_dir = os.path.dirname(__file__)
 config_path = os.path.join(local_dir, 'config-feedforward.txt')
-bestGenome_path = os.path.join(local_dir, 'pickles/' + 'best-f(M294.7)-d[16, 3, 3, 0, 0]-o[3]019240.pickle')
+bestGenome_path = os.path.join(local_dir, 'pickles/' + 'best-f(M289.9)-d[16, 3, 3, 0, 0]-o[3]904666.pickle')
 
-
-game1 = Game(numRow=16, rows=3, waves=3, type2=0, type3=0, outputs=3, pop=50)
-#run(config_path, game1) # Train from 0
-#reRun(config_path, game1)
+game1 = Game(numRow=16, rows=3, waves=3, type2=4, type3=4, outputs=3, pop=50)
+# run(config_path, game1) # Train from 0
+# reRun(config_path, game1)
 runBest(config_path, game1, bestGenome_path)
+
+# gameDetails = [16, 3, 3, 0, 0, 3, 50]
+#
+# print("Current game settings")
+#
+#
+#
+#
+# print("[1] Train from 0")
+# print("[2] Train from saved Genome")
+# print("[3] Run saved Genome")
+#
+# choice = int(input("Select: "))
+#
+# if choice == 1:
+#     game1 = Game(numRow=16, rows=3, waves=3, type2=0, type3=0, outputs=3, pop=50)
+#     run(config_path, game1)
